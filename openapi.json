@@ -1,0 +1,346 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Cloudsufi Agentic Search",
+        "summary": "Agentic web research with bring-your-own-schema structured output.",
+        "description": "\n# Cloudsufi Agentic Search\n\nAn agentic web-research API. Submit a natural-language query and receive\n**structured JSON** built from authoritative web sources.\n\n## Highlights\n\n- **Agentic research** \u2014 the service performs multi-step web search and\n  page-fetch on your behalf; no client-side tool loop is needed.\n- **Bring your own schema** \u2014 pass a JSON Schema in `output_schema` and the\n  response `data` field will conform to your shape exactly. No schema?\n  A sensible default (`answer`, `key_points`, `sources`, `confidence`)\n  is used.\n- **Provenance built-in** \u2014 design your schema with `evidence` / `sources`\n  arrays of `{claim, source_url}` to keep per-claim citations.\n- **Vendor-agnostic surface** \u2014 the API never reveals the underlying model\n  or provider, neither in successful responses nor in error messages.\n\n## Authentication\n\nSend your shared key in the `X-Api-Key` header:\n\n```\nX-Api-Key: your-shared-secret\n```\n\nRequests without a valid key (when one is configured server-side) return\n`401 Invalid or missing API key`.\n\n## Rate limiting\n\nPer-key (or per-IP if no key is sent). Default `10/minute`. Configurable\nserver-side via the `CLOUDSUFI_RATE_LIMIT` environment variable. Exceeding\nthe limit returns `429 Rate limit exceeded`.\n",
+        "contact": {
+            "name": "Cloudsufi Engineering",
+            "email": "engineering@cloudsufi.com"
+        },
+        "license": {
+            "name": "Proprietary"
+        },
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "tags": [
+                    "system"
+                ],
+                "summary": "Liveness check",
+                "description": "Simple readiness probe. Returns `{\"status\": \"ok\"}` when the service is up.",
+                "operationId": "health_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HealthResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/query": {
+            "post": {
+                "tags": [
+                    "research"
+                ],
+                "summary": "Run an agentic web-research query",
+                "description": "Performs agentic web research for the supplied `query` and returns structured JSON. If `output_schema` is provided, the response `data` field conforms to that schema; otherwise the default schema (`answer`, `key_points`, `sources`, `confidence`) is used.\n\n**Authentication:** `X-Api-Key` header (when configured server-side).\n\n**Rate limit:** `10/minute` per key by default; configurable via the `CLOUDSUFI_RATE_LIMIT` environment variable.",
+                "operationId": "query_query_post",
+                "parameters": [
+                    {
+                        "name": "x-api-key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Shared-secret API key. Required when `CLOUDSUFI_API_KEY` is set on the server.",
+                            "title": "X-Api-Key"
+                        },
+                        "description": "Shared-secret API key. Required when `CLOUDSUFI_API_KEY` is set on the server."
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/QueryRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/QueryResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed or rejected request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid `X-Api-Key`.",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Invalid or missing API key"
+                                },
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Request body failed validation."
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded for this key (or IP).",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Rate limit exceeded"
+                                },
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "Transient upstream failure.",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Upstream service error."
+                                },
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ErrorResponse": {
+                "properties": {
+                    "detail": {
+                        "type": "string",
+                        "title": "Detail",
+                        "examples": [
+                            "Invalid or missing API key"
+                        ]
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "detail"
+                ],
+                "title": "ErrorResponse"
+            },
+            "HealthResponse": {
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "title": "Status",
+                        "examples": [
+                            "ok"
+                        ]
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "status"
+                ],
+                "title": "HealthResponse"
+            },
+            "QueryRequest": {
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Query",
+                        "description": "The user's natural-language research query.",
+                        "examples": [
+                            "What were the top open-source AI releases in the last 30 days?"
+                        ]
+                    },
+                    "max_searches": {
+                        "type": "integer",
+                        "maximum": 15.0,
+                        "minimum": 1.0,
+                        "title": "Max Searches",
+                        "description": "Upper bound on the number of web searches the agent may perform for this query.",
+                        "default": 5
+                    },
+                    "output_schema": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Output Schema",
+                        "description": "Optional JSON Schema describing the desired response shape. When supplied, the response `data` field will conform to this schema rather than the default. The schema must be a valid JSON Schema with `\"type\": \"object\"` at the root. Set `additionalProperties: false` and list `required` fields on every object for best adherence."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "query"
+                ],
+                "title": "QueryRequest",
+                "examples": [
+                    {
+                        "summary": "Default schema",
+                        "value": {
+                            "max_searches": 1,
+                            "query": "What is the capital of France?"
+                        }
+                    },
+                    {
+                        "summary": "Custom schema \u2014 person profile with provenance",
+                        "value": {
+                            "max_searches": 4,
+                            "output_schema": {
+                                "additionalProperties": false,
+                                "properties": {
+                                    "full_name": {
+                                        "type": "string"
+                                    },
+                                    "occupation": {
+                                        "type": "string"
+                                    },
+                                    "employer": {
+                                        "type": "string"
+                                    },
+                                    "evidence": {
+                                        "items": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                                "claim": {
+                                                    "type": "string"
+                                                },
+                                                "source_url": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "claim",
+                                                "source_url"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "type": "array"
+                                    }
+                                },
+                                "required": [
+                                    "full_name",
+                                    "occupation",
+                                    "employer",
+                                    "evidence"
+                                ],
+                                "type": "object"
+                            },
+                            "query": "Find data on Jeremiah Smith, Ohio State wide receiver"
+                        }
+                    }
+                ]
+            },
+            "QueryResponse": {
+                "properties": {
+                    "data": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Data",
+                        "description": "The structured payload. When `output_schema` was supplied in the request, `data` conforms to that schema. Otherwise it matches the default schema (see `DefaultData`)."
+                    },
+                    "usage": {
+                        "$ref": "#/components/schemas/UsageInfo"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "data",
+                    "usage"
+                ],
+                "title": "QueryResponse",
+                "example": {
+                    "data": {
+                        "answer": "The capital of France is Paris.",
+                        "confidence": "high",
+                        "key_points": [
+                            "Paris is located in north-central France along the Seine River.",
+                            "It is the largest city in France and the seat of government."
+                        ],
+                        "sources": []
+                    },
+                    "usage": {
+                        "input_tokens": 2808,
+                        "output_tokens": 76,
+                        "stop_reason": "end_turn"
+                    }
+                }
+            },
+            "UsageInfo": {
+                "properties": {
+                    "input_tokens": {
+                        "type": "integer",
+                        "title": "Input Tokens",
+                        "description": "Tokens consumed processing the request."
+                    },
+                    "output_tokens": {
+                        "type": "integer",
+                        "title": "Output Tokens",
+                        "description": "Tokens generated in the response."
+                    },
+                    "stop_reason": {
+                        "type": "string",
+                        "title": "Stop Reason",
+                        "description": "Why the agent stopped (e.g. `end_turn`, `max_tokens`)."
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "input_tokens",
+                    "output_tokens",
+                    "stop_reason"
+                ],
+                "title": "UsageInfo"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "system",
+            "description": "Operational endpoints \u2014 health and readiness checks."
+        },
+        {
+            "name": "research",
+            "description": "Agentic web-research endpoints. Submit a natural-language query; receive structured JSON conforming to either the default schema or a client-supplied JSON Schema."
+        }
+    ]
+}
