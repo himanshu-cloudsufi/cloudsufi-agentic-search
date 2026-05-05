@@ -11,6 +11,12 @@ from slowapi.util import get_remote_address
 
 load_dotenv()
 
+API_KEY = os.environ.get("CLOUDSUFI_API_KEY")
+if not API_KEY:
+    raise RuntimeError(
+        "CLOUDSUFI_API_KEY environment variable is required to start the service."
+    )
+
 RATE_LIMIT = os.environ.get("CLOUDSUFI_RATE_LIMIT", "10/minute")
 
 
@@ -51,7 +57,7 @@ Send your shared key in the `X-Api-Key` header:
 X-Api-Key: your-shared-secret
 ```
 
-Requests without a valid key (when one is configured server-side) return
+All requests must include a valid key. Requests without a valid key return
 `401 Invalid or missing API key`.
 
 ## Rate limiting
@@ -326,8 +332,7 @@ def _extract_structured_output(content_blocks: list[Any]) -> dict[str, Any] | No
 
 
 def _verify_api_key(x_api_key: str | None) -> None:
-    expected = os.environ.get("CLOUDSUFI_API_KEY")
-    if expected and x_api_key != expected:
+    if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
@@ -351,7 +356,7 @@ def health() -> dict[str, str]:
         "structured JSON. If `output_schema` is provided, the response `data` "
         "field conforms to that schema; otherwise the default schema "
         "(`answer`, `key_points`, `sources`, `confidence`) is used.\n\n"
-        "**Authentication:** `X-Api-Key` header (when configured server-side).\n\n"
+        "**Authentication:** `X-Api-Key` header (required).\n\n"
         "**Rate limit:** `10/minute` per key by default; configurable via "
         "the `CLOUDSUFI_RATE_LIMIT` environment variable."
     ),
@@ -364,7 +369,7 @@ def query(
     req: QueryRequest,
     x_api_key: str | None = Header(
         default=None,
-        description="Shared-secret API key. Required when `CLOUDSUFI_API_KEY` is set on the server.",
+        description="Shared-secret API key. Required on every request.",
     ),
 ) -> dict[str, Any]:
     _verify_api_key(x_api_key)
