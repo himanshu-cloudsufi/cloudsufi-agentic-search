@@ -2,11 +2,14 @@ import os
 from typing import Any
 
 import anthropic
+from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+
+load_dotenv()
 
 RATE_LIMIT = os.environ.get("CLOUDSUFI_RATE_LIMIT", "10/minute")
 
